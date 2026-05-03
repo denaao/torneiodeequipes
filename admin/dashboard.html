@@ -36,13 +36,13 @@
     async function checkAuth() {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
-      if (!data.authenticated) window.location.href = '/login.html';
+      if (!data.authenticated) window.location.href = '/';
     }
     checkAuth();
 
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+      window.location.href = '/';
     }
 
     function openNewEtapa() { document.getElementById('modalNewEtapa').classList.add('open'); }

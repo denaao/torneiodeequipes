@@ -1,22 +1,48 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import db from '../database.js';
+import pool from '../database.js';
 
 const router = Router();
 
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuário e senha obrigatórios' });
-  }
+router.post('/signup', async (req, res) => {
+  const { email, password, name } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha obrigatórios' });
+  if (password.length < 6) return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres' });
 
-  const admin = db.prepare('SELECT * FROM admin WHERE username = ?').get(username);
-  if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
-    return res.status(401).json({ error: 'Usuário ou senha inválidos' });
-  }
+  try {
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    if (existing.rows.length > 0) return res.status(400).json({ error: 'Email já cadastrado' });
 
-  req.session.admin = { id: admin.id, username: admin.username };
-  res.json({ ok: true });
+    const hash = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'INSERT INTO users (email, password_hash, name) VALUES ($1, $2, $3) RETURNING id, email, name',
+      [email.toLowerCase(), hash, name || email.split('@')[0]]
+    );
+    const user = result.rows[0];
+    req.session.user = { id: user.id, email: user.email, name: user.name };
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao criar conta' });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha obrigatórios' });
+
+  try {
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const user = result.rows[0];
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'Email ou senha inválidos' });
+    }
+    req.session.user = { id: user.id, email: user.email, name: user.name };
+    res.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao fazer login' });
+  }
 });
 
 router.post('/logout', (req, res) => {
@@ -25,8 +51,8 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/check', (req, res) => {
-  if (req.session && req.session.admin) {
-    return res.json({ authenticated: true, username: req.session.admin.username });
+  if (req.session?.user) {
+    return res.json({ authenticated: true, user: req.session.user });
   }
   res.json({ authenticated: false });
 });

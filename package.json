@@ -1,7 +1,7 @@
 {
   "name": "torneio-de-equipes-backend",
   "version": "1.0.0",
-  "description": "Backend admin para Torneio de Equipes",
+  "description": "Backend multi-usuário para Torneio de Equipes",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -10,11 +10,12 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.8.0",
+    "connect-pg-simple": "^10.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
-    "express-session": "^1.19.0"
+    "express-session": "^1.19.0",
+    "pg": "^8.13.0"
   },
   "engines": {
     "node": "20.x"

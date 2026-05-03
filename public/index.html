@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Torneio de Equipes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --yellow: #f5c800; --bg: #0d0d0d; --bg2: #1a1a1a; --text: #eee; --text-muted: #888; --red: #e74c3c; --green: #27ae60; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* NAV */
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 2rem; border-bottom: 1px solid rgba(245,200,0,.1); }
+    .logo { font-family: 'Oswald', sans-serif; font-size: 1.3rem; color: var(--yellow); letter-spacing: 2px; text-transform: uppercase; }
+
+    /* HERO */
+    .hero { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1rem; text-align: center; }
+    .hero h1 { font-family: 'Oswald', sans-serif; font-size: clamp(2.2rem, 7vw, 4rem); font-weight: 700; color: #fff; line-height: 1.1; margin-bottom: 1rem; }
+    .hero h1 span { color: var(--yellow); }
+    .hero p { color: var(--text-muted); font-size: 1.05rem; max-width: 480px; margin-bottom: 3rem; line-height: 1.6; }
+
+    /* CARD */
+    .card { background: var(--bg2); border-radius: 14px; border: 1px solid rgba(245,200,0,.15); padding: 2rem; width: 100%; max-width: 400px; }
+
+    /* TABS */
+    .tabs { display: flex; margin-bottom: 1.5rem; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,.08); }
+    .tab-btn { flex: 1; padding: .65rem; background: transparent; color: var(--text-muted); border: none; cursor: pointer; font-family: 'Oswald', sans-serif; font-size: .85rem; letter-spacing: 1px; text-transform: uppercase; transition: all .2s; }
+    .tab-btn.active { background: var(--yellow); color: #111; font-weight: 700; }
+
+    /* FORM */
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: .78rem; color: var(--text-muted); margin-bottom: .35rem; text-transform: uppercase; letter-spacing: .5px; }
+    .form-group input { width: 100%; padding: .7rem .9rem; background: var(--bg); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; color: var(--text); font-size: .9rem; transition: border-color .2s; }
+    .form-group input:focus { outline: none; border-color: var(--yellow); }
+    .submit-btn { width: 100%; padding: .8rem; margin-top: .5rem; background: var(--yellow); color: #111; border: none; border-radius: 8px; font-family: 'Oswald', sans-serif; font-size: 1rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: background .2s; }
+    .submit-btn:hover { background: #e0b800; }
+    .submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .msg { margin-top: .75rem; font-size: .82rem; text-align: center; min-height: 1.2rem; }
+    .msg.error { color: var(--red); }
+    .msg.success { color: var(--green); }
+
+    /* FEATURES */
+    .features { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; padding: 3rem 1rem; border-top: 1px solid rgba(255,255,255,.05); }
+    .feature { text-align: center; max-width: 160px; }
+    .feature-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .feature-title { font-family: 'Oswald', sans-serif; font-size: .9rem; color: var(--yellow); margin-bottom: .25rem; }
+    .feature-desc { font-size: .75rem; color: var(--text-muted); line-height: 1.4; }
+
+    footer { text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: .75rem; border-top: 1px solid rgba(255,255,255,.05); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">Torneio de Equipes</div>
+  </nav>
+
+  <div class="hero">
+    <h1>Gerencie seus<br><span>torneios de equipes</span></h1>
+    <p>Sorteio automático de mesas, registro de jogadores, ranking ao vivo e muito mais.</p>
+
+    <div class="card">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="setTab('login')">Entrar</button>
+        <button class="tab-btn" onclick="setTab('signup')">Criar conta</button>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="formLogin">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="seu@email.com" />
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="loginPassword" placeholder="••••••" />
+        </div>
+        <button class="submit-btn" onclick="doLogin()">Entrar</button>
+        <div class="msg" id="loginMsg"></div>
+      </div>
+
+      <!-- SIGNUP -->
+      <div id="formSignup" style="display:none">
+        <div class="form-group">
+          <label>Nome</label>
+          <input type="text" id="signupName" placeholder="Seu nome" />
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="signupEmail" placeholder="seu@email.com" />
+        </div>
+        <div class="form-group">
+          <label>Senha</label>
+          <input type="password" id="signupPassword" placeholder="Mínimo 6 caracteres" />
+        </div>
+        <button class="submit-btn" onclick="doSignup()">Criar conta</button>
+        <div class="msg" id="signupMsg"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🎲</div>
+      <div class="feature-title">Sorteio</div>
+      <div class="feature-desc">Mesas sorteadas automaticamente sem repetir equipes</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">Ranking</div>
+      <div class="feature-desc">Pontuação em tempo real para cada etapa</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">📺</div>
+      <div class="feature-title">TV ao vivo</div>
+      <div class="feature-desc">Tela de ranking para projetar no evento</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🔗</div>
+      <div class="feature-title">Link de inscrição</div>
+      <div class="feature-desc">Cada equipe recebe um link para cadastrar jogadores</div>
+    </div>
+  </div>
+
+  <footer>© 2026 Torneio de Equipes</footer>
+
+  <script>
+    // Verifica se já está logado
+    fetch('/api/auth/check').then(r => r.json()).then(d => {
+      if (d.authenticated) window.location.href = '/admin/dashboard.html';
+    });
+
+    function setTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === 0) === (tab === 'login')));
+      document.getElementById('formLogin').style.display = tab === 'login' ? '' : 'none';
+      document.getElementById('formSignup').style.display = tab === 'signup' ? '' : 'none';
+    }
+
+    async function doLogin() {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const msg = document.getElementById('loginMsg');
+      msg.textContent = '';
+      msg.className = 'msg';
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.href = '/admin/dashboard.html';
+      } else {
+        msg.textContent = data.error || 'Erro ao entrar';
+        msg.className = 'msg error';
+      }
+    }
+
+    async function doSignup() {
+      const name = document.getElementById('signupName').value.trim();
+      const email = document.getElementById('signupEmail').value.trim();
+      const password = document.getElementById('signupPassword').value;
+      const msg = document.getElementById('signupMsg');
+      msg.textContent = '';
+      msg.className = 'msg';
+
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        window.location.href = '/admin/dashboard.html';
+      } else {
+        msg.textContent = data.error || 'Erro ao criar conta';
+        msg.className = 'msg error';
+      }
+    }
+
+    // Enter key
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (document.getElementById('formLogin').style.display !== 'none') doLogin();
+      else doSignup();
+    });
+  </script>
+</body>
+</html>

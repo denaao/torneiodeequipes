@@ -2,24 +2,30 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import connectPgSimple from 'connect-pg-simple';
+import pool, { initSchema } from './database.js';
 import authRoutes from './routes/auth.js';
 import adminRoutes from './routes/admin.js';
 import publicRoutes from './routes/public.js';
-import { syncAdminCredentials } from './services/admin-bootstrap.js';
 
 const app = express();
 const PORT = process.env.PORT || 3011;
-const adminSync = syncAdminCredentials();
+const PgSession = connectPgSimple(session);
 
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
+  store: new PgSession({
+    pool,
+    tableName: 'session',
+    createTableIfMissing: true
+  }),
   secret: process.env.SESSION_SECRET || 'torneio-equipes-secret-change-me',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     sameSite: 'lax'
   }
@@ -31,14 +37,26 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api', publicRoutes);
 
-// Serve os arquivos estáticos do admin na raiz
-app.use(express.static('admin'));
+// Landing page e páginas públicas na raiz
+app.use(express.static('public'));
 
-app.get('/health', (req, res) => {
-  res.send('Torneio de Equipes Backend — OK');
+// Admin em /admin
+app.use('/admin', express.static('admin'));
+
+// Fallback: qualquer rota /admin/* não encontrada → index do admin
+app.get('/admin*', (req, res) => {
+  res.sendFile('admin/index.html', { root: '.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Admin ${adminSync.created ? 'criado' : 'atualizado'}: ${adminSync.username}`);
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
-});
+app.get('/health', (req, res) => res.send('Torneio de Equipes — OK'));
+
+initSchema()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando em http://localhost:${PORT}`);
+    });
+  })
+  .catch(err => {
+    console.error('Erro ao inicializar banco:', err);
+    process.exit(1);
+  });

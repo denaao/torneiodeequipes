@@ -35,7 +35,7 @@
       <button class="btn" id="btnFinish" onclick="finishEtapa()" style="display:none">Encerrar Etapa</button>
       <button class="btn" id="btnPrint" onclick="printPositions()" style="display:none">Imprimir Posicoes</button>
       <button class="btn btn-primary" id="btnPdf" onclick="openReport()" style="display:none">Ver Relatório</button>
-      <a href="tv.html" target="_blank" class="btn" id="btnTv">📺 TV</a>
+      <a id="btnTv" href="#" target="_blank" class="btn">📺 TV</a>
     </div>
   </div>
 
@@ -78,6 +78,7 @@
 
   <script>
     const etapaId = new URLSearchParams(window.location.search).get('id');
+    document.getElementById('btnTv').href = `/tv.html?etapa=${etapaId}`;
     let etapaData = null;
     let teamsData = [];
     let tablesData = [];
@@ -85,13 +86,13 @@
     async function checkAuth() {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
-      if (!data.authenticated) window.location.href = '/login.html';
+      if (!data.authenticated) window.location.href = '/';
     }
     checkAuth();
 
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+      window.location.href = '/';
     }
 
     function openNewTeam() { document.getElementById('modalNewTeam').classList.add('open'); }
@@ -103,6 +104,7 @@
 
     async function copyLink(token) {
       const url = `${getBaseUrl()}/register.html?token=${token}`;
+
       try {
         await navigator.clipboard.writeText(url);
         alert('Link copiado!');

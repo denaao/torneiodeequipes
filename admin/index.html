@@ -2,7 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0;url=login.html" />
 </head>
-<body></body>
+<body>
+<script>
+  fetch('/api/auth/check').then(r => r.json()).then(d => {
+    window.location.href = d.authenticated ? '/admin/dashboard.html' : '/';
+  });
+</script>
+</body>
 </html>
