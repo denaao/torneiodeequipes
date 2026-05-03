@@ -162,11 +162,27 @@ router.get('/public/etapas/:id/report', async (req, res) => {
         JOIN tables_t t ON s.table_id=t.id JOIN players p ON s.player_id=p.id
         WHERE p.etapa_team_id=$1 AND t.etapa_id=$2 AND t.phase='final'
       `, [team.team_id, etapaId])).rows[0];
+
+      // Pontuação individual por jogador
+      const { rows: playerStats } = await pool.query(`
+        SELECT p.nome as player_nome,
+          COALESCE(SUM(CASE WHEN t.phase='qualifying' THEN s.points ELSE 0 END),0) as qualifying,
+          COALESCE(SUM(CASE WHEN t.phase='final' THEN s.points ELSE 0 END),0) as final,
+          COALESCE(SUM(s.points),0) as total
+        FROM players p
+        LEFT JOIN seats s ON s.player_id=p.id
+        LEFT JOIN tables_t t ON s.table_id=t.id AND t.etapa_id=$2
+        WHERE p.etapa_team_id=$1
+        GROUP BY p.id, p.nome
+        ORDER BY total DESC, p.nome
+      `, [team.team_id, etapaId]);
+
       ranking.push({
         nome: team.team_nome,
         qualifying: parseInt(qp.total),
         final: parseInt(fp.total),
-        total: parseInt(qp.total) + parseInt(fp.total)
+        total: parseInt(qp.total) + parseInt(fp.total),
+        players: playerStats
       });
     }
     ranking.sort((a, b) => b.total - a.total);
@@ -196,6 +212,24 @@ router.get('/public/etapas/:id/report', async (req, res) => {
         <td>${t.final}</td>
         <td><strong>${t.total}</strong></td>
       </tr>`).join('');
+
+    const teamDetailCards = ranking.map((t, i) => {
+      const playerRows = t.players.map(p => `
+        <tr>
+          <td>${p.player_nome}</td>
+          <td style="text-align:center">${p.qualifying}</td>
+          <td style="text-align:center">${p.final}</td>
+          <td style="text-align:center"><strong>${p.total}</strong></td>
+        </tr>`).join('');
+      return `
+      <div class="team-card">
+        <div class="team-title"><span class="pos">${i + 1}º</span> ${t.nome} <span class="team-total">${t.total} pts</span></div>
+        <table class="inner-table">
+          <thead><tr><th>Jogador</th><th>Class.</th><th>Final</th><th>Total</th></tr></thead>
+          <tbody>${playerRows}</tbody>
+        </table>
+      </div>`;
+    }).join('');
 
     const tableCards = tables.map(t => {
       const seats = t.seats.map(s => `
@@ -235,12 +269,17 @@ router.get('/public/etapas/:id/report', async (req, res) => {
     .mesas{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
     .mesa-card{background:#1a1a1a;border-radius:8px;overflow:hidden}
     .mesa-title{background:#111;padding:.6rem 1rem;font-size:.85rem;font-weight:600;color:#f5c800;text-transform:uppercase;letter-spacing:.5px}
+    .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem}
+    .team-card{background:#1a1a1a;border-radius:8px;overflow:hidden}
+    .team-title{background:#111;padding:.6rem 1rem;font-size:.9rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:.5rem}
+    .team-title .pos{color:#f5c800;font-size:1rem;min-width:1.5rem}
+    .team-title .team-total{margin-left:auto;color:#f5c800;font-size:.82rem}
     .inner-table{width:100%;border-collapse:collapse}
     .inner-table th{background:transparent;padding:.5rem .8rem;font-size:.72rem}
     .inner-table td{padding:.5rem .8rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.85rem}
     .inner-table tr:last-child td{border-bottom:none}
     footer{margin-top:3rem;color:#555;font-size:.75rem;text-align:center}
-    @media print{body{background:#fff;color:#000}.mesa-card,.inner-table td,.inner-table th,td,th{color:#000!important;background:#fff!important;border-color:#ccc!important}h1,.mesa-title,h2{color:#000!important}}
+    @media print{body{background:#fff;color:#000}.mesa-card,.team-card,.inner-table td,.inner-table th,td,th{color:#000!important;background:#fff!important;border-color:#ccc!important}h1,.mesa-title,.team-title,h2{color:#000!important}.team-title .pos,.team-title .team-total{color:#000!important}}
   </style>
 </head>
 <body>
@@ -252,6 +291,9 @@ router.get('/public/etapas/:id/report', async (req, res) => {
     <thead><tr><th>#</th><th>Equipe</th><th>Pts Class.</th><th>Pts Final</th><th>Total</th></tr></thead>
     <tbody>${rankingRows}</tbody>
   </table>
+
+  <h2>Desempenho por Equipe</h2>
+  <div class="teams-grid">${teamDetailCards}</div>
 
   <h2>Mesas</h2>
   <div class="mesas">${tableCards}</div>
