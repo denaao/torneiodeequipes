@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Etapa — Admin HGKL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1 id="pageTitle">Etapa</h1>
+    <div class="topbar-actions">
+      <a href="dashboard.html" class="btn btn-sm">&larr; Voltar</a>
+      <button class="btn btn-danger btn-sm" onclick="logout()">Sair</button>
+    </div>
+  </div>
+
+  <!-- TEAMS SECTION -->
+  <div class="card" id="teamsSection">
+    <div class="card-title">
+      <span>Equipes</span>
+      <button class="btn btn-sm" onclick="openNewTeam()">+ Adicionar Equipe</button>
+    </div>
+    <div id="teamsList"></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="card" id="actionsSection">
+    <div class="card-title"><span>Acoes</span></div>
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btnDraw" onclick="executeDraw()">Sortear Mesas</button>
+      <button class="btn btn-danger" id="btnClearDraw" onclick="clearDraw()" style="display:none">Apagar Sorteio</button>
+      <button class="btn btn-green" id="btnFinal" onclick="openFinalModal()" style="display:none">Criar Mesa Final</button>
+      <button class="btn" id="btnFinish" onclick="finishEtapa()" style="display:none">Encerrar Etapa</button>
+      <button class="btn" id="btnPrint" onclick="printPositions()" style="display:none">Imprimir Posicoes</button>
+      <button class="btn btn-primary" id="btnPdf" onclick="openReport()" style="display:none">Ver Relatório</button>
+    </div>
+  </div>
+
+  <!-- TABLES SECTION -->
+  <div id="tablesSection"></div>
+
+  <!-- RANKING SECTION -->
+  <div class="card" id="rankingSection" style="display:none">
+    <div class="card-title"><span>Ranking</span></div>
+    <div id="rankingList"></div>
+  </div>
+
+  <!-- MODAL: New Team -->
+  <div class="modal-overlay" id="modalNewTeam">
+    <div class="modal">
+      <h2>Adicionar Equipe</h2>
+      <div class="form-group">
+        <label>Nome da Equipe</label>
+        <input type="text" id="teamNome" placeholder="Ex: Garagentos" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalNewTeam')">Cancelar</button>
+        <button class="btn btn-primary" onclick="createTeam()">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Final Table -->
+  <div class="modal-overlay" id="modalFinal">
+    <div class="modal">
+      <h2>Mesa Final — Escolher Representantes</h2>
+      <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;">Selecione 1 jogador de cada equipe.</p>
+      <div id="finalPicks"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalFinal')">Cancelar</button>
+        <button class="btn btn-primary" onclick="createFinalTable()">Criar Mesa Final</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const etapaId = new URLSearchParams(window.location.search).get('id');
+    let etapaData = null;
+    let teamsData = [];
+    let tablesData = [];
+
+    async function checkAuth() {
+      const res = await fetch('/api/auth/check');
+      const data = await res.json();
+      if (!data.authenticated) window.location.href = '/admin/login.html';
+    }
+    checkAuth();
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/admin/login.html';
+    }
+
+    function openNewTeam() { document.getElementById('modalNewTeam').classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    function getBaseUrl() {
+      return window.location.origin;
+    }
+
+    async function copyLink(token) {
+      const url = `${getBaseUrl()}/register.html?token=${token}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        alert('Link copiado!');
+      } catch {
+        prompt('Copie o link:', url);
+      }
+    }
+
+    // ── LOAD DATA ──
+
+    async function loadAll() {
+      const [etapaRes, teamsRes, tablesRes] = await Promise.all([
+        fetch('/api/admin/etapas'),
+        fetch(`/api/admin/etapas/${etapaId}/teams`),
+        fetch(`/api/admin/etapas/${etapaId}/tables`)
+      ]);
+      const etapas = await etapaRes.json();
+      etapaData = etapas.find(e => e.id == etapaId);
+      teamsData = await teamsRes.json();
+      tablesData = await tablesRes.json();
+
+      document.getElementById('pageTitle').textContent = etapaData ? etapaData.nome : 'Etapa';
+      renderTeams();
+      renderTables();
+      renderActions();
+      loadRanking();
+    }
+
+    // ── TEAMS ──
+
+    function renderTeams() {
+      const list = document.getElementById('teamsList');
+      if (teamsData.length === 0) {
+        list.innerHTML = '<p style="color:var(--text-muted);font-size:.85rem;">Nenhuma equipe cadastrada.</p>';
+        return;
+      }
+      list.innerHTML = `
+        <table class="admin-table">
+          <thead><tr><th>Equipe</th><th>Jogadores</th><th>Link</th><th></th></tr></thead>
+          <tbody>
+            ${teamsData.map(t => `
+              <tr>
+                <td><strong>${t.nome}</strong></td>
+                <td>${t.players.length === 8 ? '<span style="color:var(--green)">8/8</span>' : `<span style="color:var(--red)">${t.players.length}/8</span>`}
+                  ${t.players.length > 0 ? `<br><span style="font-size:.7rem;color:var(--text-muted)">${t.players.map(p => p.nome).join(', ')}</span>` : ''}
+                </td>
+                <td><span class="copy-link" onclick="copyLink('${t.registration_token}')">Copiar link</span></td>
+                <td><button class="btn btn-danger btn-sm" onclick="deleteTeam(${t.id}, '${t.nome}')">X</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    async function createTeam() {
+      const nome = document.getElementById('teamNome').value.trim();
+      if (!nome) return;
+      await fetch(`/api/admin/etapas/${etapaId}/teams`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome })
+      });
+      closeModal('modalNewTeam');
+      document.getElementById('teamNome').value = '';
+      loadAll();
+    }
+
+    async function deleteTeam(id, nome) {
+      if (!confirm(`Apagar equipe "${nome}"?`)) return;
+      await fetch(`/api/admin/teams/${id}`, { method: 'DELETE' });
+      loadAll();
+    }
+
+    // ── ACTIONS ──
+
+    function renderActions() {
+      const hasTables = tablesData.length > 0;
+      const hasQualifying = tablesData.some(t => t.phase === 'qualifying');
+      const hasFinal = tablesData.some(t => t.phase === 'final');
+      const allTeamsReady = teamsData.length >= 2 && teamsData.every(t => t.players.length === 8);
+
+      const isFinished = etapaData && etapaData.status === 'finished';
+
+      document.getElementById('btnDraw').style.display = (!hasTables && allTeamsReady && !isFinished) ? '' : 'none';
+      document.getElementById('btnClearDraw').style.display = (hasQualifying && !isFinished) ? '' : 'none';
+      document.getElementById('btnPrint').style.display = hasQualifying ? '' : 'none';
+      document.getElementById('btnFinal').style.display = (hasQualifying && !hasFinal && isQualifyingComplete() && !isFinished) ? '' : 'none';
+      document.getElementById('btnFinish').style.display = (hasFinal && isFinalComplete() && !isFinished) ? '' : 'none';
+      document.getElementById('btnPdf').style.display = isFinished ? '' : 'none';
+
+      if (isFinished) {
+        document.getElementById('teamsSection').querySelector('.card-title button').style.display = 'none';
+        document.getElementById('pageTitle').textContent = (etapaData.nome || 'Etapa') + ' (Encerrada)';
+      }
+
+      const rankSection = document.getElementById('rankingSection');
+      rankSection.style.display = hasTables ? '' : 'none';
+    }
+
+    function isQualifyingComplete() {
+      const qualTables = tablesData.filter(t => t.phase === 'qualifying');
+      return qualTables.length > 0 && qualTables.every(t =>
+        t.seats.every(s => s.elimination_order !== null)
+      );
+    }
+
+    function isFinalComplete() {
+      const finalTable = tablesData.find(t => t.phase === 'final');
+      return finalTable && finalTable.seats.every(s => s.elimination_order !== null);
+    }
+
+    async function executeDraw() {
+      if (!confirm('Executar sorteio das mesas?')) return;
+      const res = await fetch(`/api/admin/etapas/${etapaId}/draw`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error); return; }
+      alert(`Sorteio realizado! ${data.tables} mesas criadas.`);
+      loadAll();
+    }
+
+    async function clearDraw() {
+      if (!confirm('Apagar sorteio e todos os resultados?')) return;
+      await fetch(`/api/admin/etapas/${etapaId}/tables`, { method: 'DELETE' });
+      loadAll();
+    }
+
+    async function finishEtapa() {
+      if (!confirm('Encerrar esta etapa? Os valores serão congelados e não poderão ser editados.')) return;
+      if (!confirm('Tem certeza? Esta ação não pode ser desfeita.')) return;
+      const res = await fetch(`/api/admin/etapas/${etapaId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'finished' })
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Erro ao encerrar');
+        return;
+      }
+      alert('Etapa encerrada! Valores congelados.');
+      loadAll();
+    }
+
+    function openReport() {
+      window.open(`/api/public/etapas/${etapaId}/report`, '_blank');
+    }
+
+    function printPositions() {
+      const hasFinal = tablesData.some(t => t.phase === 'final');
+      const tablesToPrint = hasFinal
+        ? tablesData.filter(t => t.phase === 'final')
+        : tablesData.filter(t => t.phase === 'qualifying');
+
+      if (tablesToPrint.length === 0) { alert('Nenhuma mesa sorteada.'); return; }
+
+      let tickets = [];
+      tablesToPrint.forEach(table => {
+        const label = table.phase === 'final' ? 'Mesa Final' : `Mesa ${table.numero}`;
+        table.seats.forEach((s, i) => {
+          tickets.push({ nome: s.player_nome, equipe: s.team_nome, mesa: label, posicao: i + 1 });
+        });
+      });
+
+      const win = window.open('', '_blank');
+      win.document.write(`<!DOCTYPE html><html><head><title>Posicoes</title>
+        <style>
+          @page { size: 45mm 60mm; margin: 0; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; }
+          .ticket {
+            width: 45mm; height: 60mm;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-align: center;
+            page-break-after: always;
+            padding: 2mm;
+          }
+          .ticket-top {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 100%;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 2mm;
+          }
+          .ticket-nome {
+            font-size: 11pt; font-weight: 700;
+            text-transform: uppercase;
+            line-height: 1.2;
+            word-break: break-word;
+          }
+          .ticket-equipe {
+            font-size: 7pt; color: #555;
+            margin-top: 1mm;
+          }
+          .ticket-bottom {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            width: 100%;
+            padding-top: 2mm;
+          }
+          .ticket-mesa {
+            font-size: 10pt; font-weight: 700;
+          }
+          .ticket-posicao {
+            font-size: 9pt; margin-top: 1mm;
+          }
+        </style></head><body>`);
+      tickets.forEach(t => {
+        win.document.write(`
+          <div class="ticket">
+            <div class="ticket-top">
+              <div class="ticket-nome">${t.nome}</div>
+              <div class="ticket-equipe">${t.equipe}</div>
+            </div>
+            <div class="ticket-bottom">
+              <div class="ticket-mesa">${t.mesa}</div>
+              <div class="ticket-posicao">Posicao ${t.posicao}</div>
+            </div>
+          </div>
+        `);
+      });
+      win.document.write('</body></html>');
+      win.document.close();
+      win.print();
+    }
+
+    // ── TABLES ──
+
+    function renderTables() {
+      const container = document.getElementById('tablesSection');
+      if (tablesData.length === 0) { container.innerHTML = ''; return; }
+
+      const qualifying = tablesData.filter(t => t.phase === 'qualifying');
+      const finalT = tablesData.filter(t => t.phase === 'final');
+
+      let html = '';
+      if (qualifying.length > 0) {
+        html += '<h2 style="font-family:Oswald;color:var(--yellow);margin:1.5rem 0 1rem;">Fase Classificatoria</h2>';
+        html += '<div class="grid-2">';
+        html += qualifying.map(t => renderMesa(t)).join('');
+        html += '</div>';
+      }
+      if (finalT.length > 0) {
+        html += '<h2 style="font-family:Oswald;color:var(--yellow);margin:1.5rem 0 1rem;">Mesa Final</h2>';
+        html += finalT.map(t => renderMesa(t)).join('');
+      }
+      container.innerHTML = html;
+    }
+
+    function renderMesa(table) {
+      const isFinished = etapaData && etapaData.status === 'finished';
+      const nextOrder = table.seats.filter(s => s.elimination_order !== null).length + 1;
+      const totalSeats = table.seats.length;
+      const complete = table.seats.every(s => s.elimination_order !== null);
+
+      const sortedSeats = [...table.seats].sort((a, b) => {
+        if (a.elimination_order === null && b.elimination_order === null) return 0;
+        if (a.elimination_order === null) return 1;
+        if (b.elimination_order === null) return -1;
+        return b.elimination_order - a.elimination_order;
+      });
+
+      return `
+        <div class="mesa-card">
+          <div class="mesa-header">
+            <span>Mesa ${table.numero} ${table.phase === 'final' ? '(Final)' : ''}</span>
+            <span style="font-size:.75rem;color:var(--text-muted)">${complete ? 'Completa' : `${nextOrder - 1}/${totalSeats} eliminados`}</span>
+          </div>
+          ${sortedSeats.map(s => {
+            const isEliminated = s.elimination_order !== null;
+            const canEliminate = !isEliminated && !complete && !isFinished;
+            const position = isEliminated ? (totalSeats + 1 - s.elimination_order) : '';
+            return `
+              <div class="seat-row ${isEliminated ? 'eliminated' : ''}"
+                   ${canEliminate ? `onclick="eliminatePlayer(${s.seat_id}, ${nextOrder})"` : ''}
+                   ${canEliminate ? 'title="Clique para eliminar"' : ''}>
+                <div>
+                  <div class="seat-player">${s.player_nome}</div>
+                  <div class="seat-team">${s.team_nome}</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                  ${isEliminated ? `<span class="seat-order">${position}o lugar</span><span class="seat-points">${s.points} pts</span>` : ''}
+                  ${isEliminated && !isFinished ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();clearSeat(${s.seat_id})" title="Desfazer">&#8635;</button>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    async function eliminatePlayer(seatId, order) {
+      const res = await fetch(`/api/admin/seats/${seatId}/eliminate`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elimination_order: order })
+      });
+      if (!res.ok) { const d = await res.json(); alert(d.error); return; }
+      loadAll();
+    }
+
+    async function clearSeat(seatId) {
+      await fetch(`/api/admin/seats/${seatId}/clear`, { method: 'PATCH' });
+      loadAll();
+    }
+
+    // ── FINAL TABLE ──
+
+    async function openFinalModal() {
+      const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
+      const ranking = await res.json();
+      const selectedTeams = ranking.slice(0);
+
+      const container = document.getElementById('finalPicks');
+      const instructionP = document.querySelector('#modalFinal p');
+      if (instructionP) instructionP.textContent = `Selecione 1 jogador de cada equipe (${selectedTeams.length} ${selectedTeams.length === 1 ? 'equipe' : 'equipes'}).`;
+      container.innerHTML = selectedTeams.map((team, i) => {
+        const players = teamsData.find(t => t.id === team.team_id)?.players || [];
+        return `
+          <div class="form-group">
+            <label>${i + 1}. ${team.team_nome} (${team.total_points} pts)</label>
+            <select id="finalPick_${team.team_id}">
+              ${players.map(p => `<option value="${p.id}">${p.nome}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('modalFinal').classList.add('open');
+    }
+
+    async function createFinalTable() {
+      const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
+      const ranking = await res.json();
+      const selectedTeams = ranking.slice(0);
+
+      const representatives = selectedTeams.map(team => ({
+        team_id: team.team_id,
+        player_id: parseInt(document.getElementById(`finalPick_${team.team_id}`).value)
+      }));
+
+      const result = await fetch(`/api/admin/etapas/${etapaId}/final`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ representatives })
+      });
+      if (!result.ok) { const d = await result.json(); alert(d.error); return; }
+      closeModal('modalFinal');
+      loadAll();
+    }
+
+    // ── RANKING ──
+
+    async function loadRanking() {
+      const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
+      const ranking = await res.json();
+      const list = document.getElementById('rankingList');
+      if (ranking.length === 0) { list.innerHTML = ''; return; }
+
+      list.innerHTML = ranking.map((team, i) => `
+        <div class="rank-row ${i < 3 ? 'rank-' + (i + 1) : ''}">
+          <span class="rank-pos">${i + 1}</span>
+          <div class="rank-team">
+            <div>${team.team_nome}</div>
+            <div class="rank-breakdown">Classif: ${team.qualifying_points} | Final: ${team.final_points}</div>
+          </div>
+          <span class="rank-points">${team.total_points}</span>
+        </div>
+      `).join('');
+    }
+
+    loadAll();
+  </script>
+</body>
+</html>

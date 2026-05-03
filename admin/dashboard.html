@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Admin HGKL</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <div class="topbar">
+    <h1>Batalha de HG — Admin</h1>
+    <div class="topbar-actions">
+      <button class="btn btn-primary" onclick="openNewEtapa()">Nova Etapa</button>
+      <button class="btn btn-danger btn-sm" onclick="logout()">Sair</button>
+    </div>
+  </div>
+
+  <div id="etapas"></div>
+
+  <div class="modal-overlay" id="modalNewEtapa">
+    <div class="modal">
+      <h2>Nova Etapa</h2>
+      <div class="form-group">
+        <label>Nome da Etapa</label>
+        <input type="text" id="etapaNome" placeholder="Ex: Etapa 3" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalNewEtapa')">Cancelar</button>
+        <button class="btn btn-primary" onclick="createEtapa()">Criar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function checkAuth() {
+      const res = await fetch('/api/auth/check');
+      const data = await res.json();
+      if (!data.authenticated) window.location.href = '/admin/login.html';
+    }
+    checkAuth();
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/admin/login.html';
+    }
+
+    function openNewEtapa() { document.getElementById('modalNewEtapa').classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    async function createEtapa() {
+      const nome = document.getElementById('etapaNome').value.trim();
+      if (!nome) return;
+      await fetch('/api/admin/etapas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome })
+      });
+      closeModal('modalNewEtapa');
+      document.getElementById('etapaNome').value = '';
+      loadEtapas();
+    }
+
+    async function deleteEtapa(id, nome) {
+      if (!confirm(`Apagar "${nome}" e todos os dados?`)) return;
+      await fetch(`/api/admin/etapas/${id}`, { method: 'DELETE' });
+      loadEtapas();
+    }
+
+    function badgeClass(status) {
+      return { registration: 'badge-registration', qualifying: 'badge-qualifying', final: 'badge-final', finished: 'badge-finished' }[status] || '';
+    }
+    function statusLabel(status) {
+      return { registration: 'Inscricoes', qualifying: 'Classificatoria', final: 'Mesa Final', finished: 'Encerrada' }[status] || status;
+    }
+
+    async function loadEtapas() {
+      const res = await fetch('/api/admin/etapas');
+      const etapas = await res.json();
+      const container = document.getElementById('etapas');
+      if (etapas.length === 0) {
+        container.innerHTML = '<div class="card"><p style="color:var(--text-muted)">Nenhuma etapa criada. Clique em "Nova Etapa" para comecar.</p></div>';
+        return;
+      }
+      container.innerHTML = etapas.map(e => `
+        <div class="card">
+          <div class="card-title">
+            <span>${e.nome} <span class="badge ${badgeClass(e.status)}">${statusLabel(e.status)}</span></span>
+            <div>
+              <a href="etapa.html?id=${e.id}" class="btn btn-sm">Gerenciar</a>
+              <button class="btn btn-danger btn-sm" onclick="deleteEtapa(${e.id}, '${e.nome}')">Apagar</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    loadEtapas();
+  </script>
+</body>
+</html>
