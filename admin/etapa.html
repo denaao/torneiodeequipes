@@ -84,13 +84,13 @@
     async function checkAuth() {
       const res = await fetch('/api/auth/check');
       const data = await res.json();
-      if (!data.authenticated) window.location.href = '/admin/login.html';
+      if (!data.authenticated) window.location.href = '/login.html';
     }
     checkAuth();
 
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/admin/login.html';
+      window.location.href = '/login.html';
     }
 
     function openNewTeam() { document.getElementById('modalNewTeam').classList.add('open'); }

@@ -1,0 +1,25 @@
+{
+  "name": "torneio-de-equipes-backend",
+  "version": "1.0.0",
+  "description": "Backend admin para Torneio de Equipes",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.18.2",
+    "express-session": "^1.19.0"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
