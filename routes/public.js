@@ -3,7 +3,8 @@ import db from '../database.js';
 
 const router = Router();
 
-// Registro de jogadores via token
+// ── REGISTRO ──
+
 router.get('/register/:token', (req, res) => {
   const etapaTeam = db.prepare(`
     SELECT et.id, et.etapa_id, gt.nome, e.nome as etapa_nome, e.status as etapa_status,
@@ -46,7 +47,8 @@ router.post('/register/:token', (req, res) => {
   res.json({ ok: true });
 });
 
-// Ranking público por etapa
+// ── PÚBLICO ──
+
 router.get('/public/etapas', (req, res) => {
   const etapas = db.prepare("SELECT id, nome, status FROM etapas ORDER BY id DESC").all();
   res.json(etapas);
@@ -76,17 +78,78 @@ router.get('/public/etapas/:id/ranking', (req, res) => {
       WHERE p.etapa_team_id = ? AND t.etapa_id = ? AND t.phase = 'final'
     `).get(team.team_id, etapaId);
 
+    const details = db.prepare(`
+      SELECT p.nome as player_nome, tb.numero as mesa, tb.phase, s.points,
+             ((SELECT COUNT(*) FROM seats WHERE table_id = s.table_id) + 1 - s.elimination_order) as position
+      FROM seats s JOIN players p ON s.player_id = p.id JOIN tables_t tb ON s.table_id = tb.id
+      WHERE p.etapa_team_id = ? AND tb.etapa_id = ? AND s.elimination_order IS NOT NULL
+      ORDER BY tb.phase, tb.numero
+    `).all(team.team_id, etapaId);
+
     ranking.push({
       team_id: team.team_id,
       team_nome: team.team_nome,
       qualifying_points: qp.total,
       final_points: fp.total,
-      total_points: qp.total + fp.total
+      total_points: qp.total + fp.total,
+      details
     });
   }
 
   ranking.sort((a, b) => b.total_points - a.total_points);
   res.json(ranking);
+});
+
+router.get('/public/etapas/:id/tables', (req, res) => {
+  const tables = db.prepare('SELECT * FROM tables_t WHERE etapa_id = ? ORDER BY phase, numero').all(req.params.id);
+  for (const table of tables) {
+    table.seats = db.prepare(`
+      SELECT s.id as seat_id, s.elimination_order, s.points,
+             p.id as player_id, p.nome as player_nome,
+             gt.id as team_id, gt.nome as team_nome
+      FROM seats s
+      JOIN players p ON s.player_id = p.id
+      JOIN etapa_teams et ON p.etapa_team_id = et.id
+      JOIN global_teams gt ON et.global_team_id = gt.id
+      WHERE s.table_id = ?
+      ORDER BY s.id
+    `).all(table.id);
+  }
+  res.json(tables);
+});
+
+router.get('/public/ranking-geral', (req, res) => {
+  const teamTotals = {};
+
+  const etapas = db.prepare("SELECT * FROM etapas WHERE status = 'finished' ORDER BY id").all();
+  for (const etapa of etapas) {
+    const teams = db.prepare(`
+      SELECT et.id as etapa_team_id, gt.nome as team_nome
+      FROM etapa_teams et
+      JOIN global_teams gt ON et.global_team_id = gt.id
+      WHERE et.etapa_id = ?
+    `).all(etapa.id);
+
+    for (const team of teams) {
+      const pts = db.prepare(`
+        SELECT COALESCE(SUM(s.points), 0) as total
+        FROM seats s
+        JOIN tables_t t ON s.table_id = t.id
+        JOIN players p ON s.player_id = p.id
+        WHERE p.etapa_team_id = ? AND t.etapa_id = ?
+      `).get(team.etapa_team_id, etapa.id);
+
+      if (pts.total <= 0) continue;
+
+      if (!teamTotals[team.team_nome]) {
+        teamTotals[team.team_nome] = { team_nome: team.team_nome, total_points: 0, etapas: [] };
+      }
+      teamTotals[team.team_nome].total_points += pts.total;
+      teamTotals[team.team_nome].etapas.push({ nome: etapa.nome, points: pts.total });
+    }
+  }
+
+  res.json(Object.values(teamTotals).sort((a, b) => b.total_points - a.total_points));
 });
 
 export default router;

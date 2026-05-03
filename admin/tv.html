@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ranking ao Vivo — Torneio de Equipes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root { --yellow: #f5c800; --bg: #0a0a0a; --bg2: #141414; --text: #eee; --text-muted: #888; }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    .header {
+      text-align: center; padding: 2rem 1rem 1rem;
+      border-bottom: 2px solid var(--yellow); margin-bottom: 2rem;
+    }
+    .header h1 {
+      font-family: 'Oswald', sans-serif; font-size: 2.2rem;
+      color: var(--yellow); letter-spacing: 2px; text-transform: uppercase;
+    }
+    .header p { color: var(--text-muted); font-size: .9rem; margin-top: .3rem; }
+
+    .container { max-width: 800px; margin: 0 auto; padding: 0 1rem 3rem; }
+
+    .etapa-tabs {
+      display: flex; gap: .5rem; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 2rem;
+    }
+    .etapa-tab {
+      font-family: 'Oswald', sans-serif; font-size: .8rem; font-weight: 600;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: .5rem 1.2rem; border-radius: 6px; cursor: pointer;
+      border: 1px solid rgba(245,200,0,.3);
+      background: rgba(245,200,0,.05); color: var(--yellow);
+      transition: background .2s;
+    }
+    .etapa-tab:hover, .etapa-tab.active { background: rgba(245,200,0,.2); border-color: var(--yellow); }
+
+    .rank-card {
+      background: var(--bg2); border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.06);
+      overflow: hidden; margin-bottom: .5rem;
+    }
+    .rank-main {
+      display: flex; align-items: center; padding: .75rem 1rem;
+      cursor: pointer; transition: background .15s;
+    }
+    .rank-main:hover { background: rgba(245,200,0,.03); }
+    .rank-pos {
+      font-family: 'Oswald', sans-serif; font-size: 1.4rem; font-weight: 700;
+      color: var(--text-muted); width: 3rem; text-align: center; flex-shrink: 0;
+    }
+    .rank-1 .rank-pos { color: var(--yellow); text-shadow: 0 0 12px rgba(245,200,0,.5); }
+    .rank-2 .rank-pos { color: #c0c0c0; }
+    .rank-3 .rank-pos { color: #cd7f32; }
+    .rank-team { flex: 1; font-family: 'Oswald', sans-serif; font-size: 1.05rem; letter-spacing: .5px; }
+    .rank-breakdown { font-family: 'Inter', sans-serif; font-size: .7rem; color: var(--text-muted); font-weight: 400; margin-top: .15rem; }
+    .rank-total { font-family: 'Oswald', sans-serif; font-size: 1.3rem; font-weight: 700; color: var(--yellow); text-align: right; min-width: 4rem; }
+    .rank-total small { font-size: .65rem; color: var(--text-muted); font-weight: 400; }
+
+    .rank-details { display: none; padding: 0 1rem 1rem 4rem; border-top: 1px solid rgba(255,255,255,.04); }
+    .rank-details.open { display: block; }
+    .detail-row { display: flex; justify-content: space-between; align-items: center; padding: .3rem 0; font-size: .8rem; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .detail-player { color: var(--text); }
+    .detail-mesa { color: var(--text-muted); font-size: .7rem; }
+    .detail-info { text-align: right; }
+    .detail-pos { color: var(--text-muted); font-size: .7rem; }
+    .detail-pts { color: var(--yellow); font-family: 'Oswald', sans-serif; font-weight: 600; }
+
+    .loading { text-align: center; color: var(--text-muted); padding: 3rem; }
+    .updated { text-align: center; color: var(--text-muted); font-size: .7rem; margin-top: 2rem; }
+
+    .mesa-section { margin-top: 2rem; }
+    .mesa-title { font-family: 'Oswald', sans-serif; font-size: 1rem; color: var(--yellow); margin-bottom: .75rem; letter-spacing: 1px; }
+    .mesa-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: .75rem; margin-bottom: 1.5rem; }
+    .mesa-card { background: var(--bg2); border-radius: 8px; border: 1px solid rgba(255,255,255,.06); padding: .75rem; }
+    .mesa-header { font-family: 'Oswald', sans-serif; font-size: .85rem; color: var(--yellow); margin-bottom: .5rem; }
+    .mesa-player { display: flex; justify-content: space-between; padding: .2rem 0; font-size: .75rem; border-bottom: 1px solid rgba(255,255,255,.03); }
+    .mesa-player.eliminated { opacity: .4; }
+    .mesa-player-team { color: var(--text-muted); font-size: .65rem; }
+    .mesa-player-pts { color: var(--yellow); font-family: 'Oswald', sans-serif; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Torneio de Equipes</h1>
+    <p>Ranking ao vivo</p>
+  </div>
+
+  <div class="container">
+    <div class="etapa-tabs" id="etapaTabs"></div>
+    <div id="content"><p class="loading">Carregando...</p></div>
+    <div class="updated" id="updated"></div>
+  </div>
+
+  <script>
+    let etapas = [];
+    let currentEtapaId = null;
+    let autoRefresh = null;
+
+    async function loadEtapas() {
+      try {
+        const res = await fetch('/api/public/etapas');
+        etapas = await res.json();
+        if (etapas.length === 0) {
+          document.getElementById('content').innerHTML = '<p class="loading">Nenhuma etapa disponivel.</p>';
+          return;
+        }
+        renderTabs();
+        // Abre direto na primeira etapa ativa, ou geral
+        const ativa = etapas.find(e => e.status !== 'finished');
+        if (ativa) selectEtapa(ativa.id);
+        else selectGeral();
+      } catch (e) {
+        document.getElementById('content').innerHTML = '<p class="loading">Erro ao carregar dados.</p>';
+      }
+    }
+
+    function renderTabs() {
+      let html = `<button class="etapa-tab" data-id="geral" onclick="selectGeral()">Geral</button>`;
+      html += etapas.map(e =>
+        `<button class="etapa-tab" data-id="${e.id}" onclick="selectEtapa(${e.id})">${e.nome}</button>`
+      ).join('');
+      document.getElementById('etapaTabs').innerHTML = html;
+    }
+
+    function selectGeral() {
+      currentEtapaId = 'geral';
+      document.querySelectorAll('.etapa-tab').forEach(b => b.classList.toggle('active', b.dataset.id === 'geral'));
+      if (autoRefresh) clearInterval(autoRefresh);
+      loadGeralRanking();
+      autoRefresh = setInterval(loadGeralRanking, 15000);
+    }
+
+    async function loadGeralRanking() {
+      try {
+        const res = await fetch('/api/public/ranking-geral');
+        const ranking = await res.json();
+        const content = document.getElementById('content');
+        if (ranking.length === 0) {
+          content.innerHTML = '<p class="loading">Nenhum resultado disponivel.</p>';
+          return;
+        }
+        content.innerHTML = ranking.map((team, i) => `
+          <div class="rank-card ${i < 3 ? 'rank-' + (i + 1) : ''}">
+            <div class="rank-main" onclick="toggleDetails(this)">
+              <span class="rank-pos">${i + 1}</span>
+              <div class="rank-team">
+                ${team.team_nome}
+                <div class="rank-breakdown">${team.etapas.map(e => e.nome + ': ' + e.points).join(' | ')}</div>
+              </div>
+              <div class="rank-total">${team.total_points} <small>pts</small></div>
+            </div>
+            <div class="rank-details">
+              ${team.etapas.map(e => `
+                <div class="detail-row">
+                  <div class="detail-player">${e.nome}</div>
+                  <div class="detail-info"><span class="detail-pts">${e.points} pts</span></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `).join('');
+        document.getElementById('updated').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+      } catch (e) { console.error(e); }
+    }
+
+    function selectEtapa(id) {
+      currentEtapaId = id;
+      document.querySelectorAll('.etapa-tab').forEach(b => b.classList.toggle('active', b.dataset.id == id));
+      if (autoRefresh) clearInterval(autoRefresh);
+      loadRanking();
+      autoRefresh = setInterval(loadRanking, 15000);
+    }
+
+    async function loadRanking() {
+      try {
+        const [rankRes, tablesRes] = await Promise.all([
+          fetch(`/api/public/etapas/${currentEtapaId}/ranking`),
+          fetch(`/api/public/etapas/${currentEtapaId}/tables`)
+        ]);
+        const ranking = await rankRes.json();
+        const tables = await tablesRes.json();
+        renderContent(ranking, tables);
+        document.getElementById('updated').textContent = 'Atualizado: ' + new Date().toLocaleTimeString('pt-BR');
+      } catch (e) { console.error(e); }
+    }
+
+    function renderContent(ranking, tables) {
+      const content = document.getElementById('content');
+      let html = '';
+
+      if (ranking.length > 0) {
+        html += ranking.map((team, i) => `
+          <div class="rank-card ${i < 3 ? 'rank-' + (i + 1) : ''}">
+            <div class="rank-main" onclick="toggleDetails(this)">
+              <span class="rank-pos">${i + 1}</span>
+              <div class="rank-team">
+                ${team.team_nome}
+                <div class="rank-breakdown">Classif: ${team.qualifying_points} | Final: ${team.final_points}</div>
+              </div>
+              <div class="rank-total">${team.total_points} <small>pts</small></div>
+            </div>
+            <div class="rank-details">
+              ${team.details && team.details.length > 0 ? team.details.map(d => `
+                <div class="detail-row">
+                  <div>
+                    <div class="detail-player">${d.player_nome}</div>
+                    <div class="detail-mesa">Mesa ${d.mesa} (${d.phase === 'final' ? 'Final' : 'Classif.'})</div>
+                  </div>
+                  <div class="detail-info">
+                    <span class="detail-pos">${d.position}o lugar</span>
+                    <span class="detail-pts"> ${d.points} pts</span>
+                  </div>
+                </div>
+              `).join('') : '<p style="color:var(--text-muted);font-size:.8rem;">Sem resultados ainda.</p>'}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      const qualifying = tables.filter(t => t.phase === 'qualifying');
+      const finalT = tables.filter(t => t.phase === 'final');
+
+      if (qualifying.length > 0) {
+        html += '<div class="mesa-section"><div class="mesa-title">Mesas — Fase Classificatória</div><div class="mesa-grid">';
+        html += qualifying.map(t => renderMesaCard(t)).join('');
+        html += '</div></div>';
+      }
+      if (finalT.length > 0) {
+        html += '<div class="mesa-section"><div class="mesa-title">Mesa Final</div><div class="mesa-grid">';
+        html += finalT.map(t => renderMesaCard(t)).join('');
+        html += '</div></div>';
+      }
+
+      content.innerHTML = html || '<p class="loading">Nenhum resultado disponivel ainda.</p>';
+    }
+
+    function renderMesaCard(table) {
+      const sorted = [...table.seats].sort((a, b) => {
+        if (a.elimination_order === null && b.elimination_order === null) return 0;
+        if (a.elimination_order === null) return -1;
+        if (b.elimination_order === null) return 1;
+        return a.elimination_order - b.elimination_order;
+      });
+      const total = table.seats.length;
+      return `
+        <div class="mesa-card">
+          <div class="mesa-header">Mesa ${table.numero} ${table.phase === 'final' ? '(Final)' : ''}</div>
+          ${sorted.map(s => {
+            const elim = s.elimination_order !== null;
+            const pos = elim ? (total + 1 - s.elimination_order) : '';
+            return `
+              <div class="mesa-player ${elim ? 'eliminated' : ''}">
+                <div>
+                  <span>${s.player_nome}</span>
+                  <span class="mesa-player-team"> (${s.team_nome})</span>
+                </div>
+                <div>
+                  ${elim ? `<span style="color:var(--text-muted);font-size:.65rem;">${pos}o</span> <span class="mesa-player-pts">${s.points}</span>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function toggleDetails(el) {
+      el.nextElementSibling.classList.toggle('open');
+    }
+
+    loadEtapas();
+  </script>
+</body>
+</html>
