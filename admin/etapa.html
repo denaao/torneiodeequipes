@@ -418,7 +418,7 @@
     async function openFinalModal() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0, etapaData?.final_spots || 6);
+      const selectedTeams = ranking.slice(0, etapaData?.players_per_table || 8);
 
       const container = document.getElementById('finalPicks');
       const instructionP = document.querySelector('#modalFinal p');
@@ -441,7 +441,7 @@
     async function createFinalTable() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0, etapaData?.final_spots || 6);
+      const selectedTeams = ranking.slice(0, etapaData?.players_per_table || 8);
 
       const representatives = selectedTeams.map(team => ({
         team_id: team.team_id,

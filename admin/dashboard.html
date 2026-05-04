@@ -30,8 +30,8 @@
         <input type="number" id="etapaPlayersPerTeam" value="4" min="1" max="20" />
       </div>
       <div class="form-group">
-        <label>Vagas na mesa final</label>
-        <input type="number" id="etapaFinalSpots" value="6" min="2" max="20" />
+        <label>Jogadores por mesa</label>
+        <input type="number" id="etapaPlayersPerTable" value="8" min="2" max="20" />
       </div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal('modalNewEtapa')">Cancelar</button>
@@ -60,11 +60,11 @@
       const nome = document.getElementById('etapaNome').value.trim();
       if (!nome) return;
       const players_per_team = parseInt(document.getElementById('etapaPlayersPerTeam').value) || 4;
-      const final_spots = parseInt(document.getElementById('etapaFinalSpots').value) || 6;
+      const players_per_table = parseInt(document.getElementById('etapaPlayersPerTable').value) || 8;
       await fetch('/api/admin/etapas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, players_per_team, final_spots })
+        body: JSON.stringify({ nome, players_per_team, players_per_table })
       });
       closeModal('modalNewEtapa');
       document.getElementById('etapaNome').value = '';
