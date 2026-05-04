@@ -38,7 +38,7 @@ router.post('/register/:token', async (req, res) => {
     if (etapaTeam.etapa_status !== 'registration') return res.status(400).json({ error: 'Inscrições encerradas' });
 
     const { players } = req.body;
-    if (!players || players.length !== 8) return res.status(400).json({ error: 'Precisa de exatamente 8 jogadores' });
+    if (!players || players.length !== 4) return res.status(400).json({ error: 'Precisa de exatamente 4 jogadores' });
     for (const name of players) {
       if (!name?.trim()) return res.status(400).json({ error: 'Todos os nomes são obrigatórios' });
     }

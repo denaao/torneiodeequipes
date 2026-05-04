@@ -58,7 +58,7 @@
 
       const existing = data.players || [];
       let html = '<form id="registerForm" class="form-card">';
-      for (let i = 0; i < 8; i++) {
+      for (let i = 0; i < 4; i++) {
         const val = existing[i] ? existing[i].nome : '';
         html += `<div class="player-input"><span class="player-num">${i + 1}</span><input type="text" name="player_${i}" placeholder="Jogador ${i + 1}" value="${val}" required /></div>`;
       }
@@ -71,7 +71,7 @@
     async function submit(e) {
       e.preventDefault();
       const form = e.target;
-      const players = Array.from({ length: 8 }, (_, i) => form[`player_${i}`].value.trim());
+      const players = Array.from({ length: 4 }, (_, i) => form[`player_${i}`].value.trim());
       const msg = document.getElementById('msg');
       const btn = form.querySelector('.submit-btn');
       btn.disabled = true;

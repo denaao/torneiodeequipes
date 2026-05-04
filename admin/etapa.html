@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Etapa — Admin HGKL</title>
+  <title>Etapa — Torneio de Equipes</title>
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="admin.css" />
 </head>
@@ -148,7 +148,7 @@
             ${teamsData.map(t => `
               <tr>
                 <td><strong>${t.nome}</strong></td>
-                <td>${t.players.length === 8 ? '<span style="color:var(--green)">8/8</span>' : `<span style="color:var(--red)">${t.players.length}/8</span>`}
+                <td>${t.players.length === 4 ? '<span style="color:var(--green)">4/4</span>' : `<span style="color:var(--red)">${t.players.length}/4</span>`}
                   ${t.players.length > 0 ? `<br><span style="font-size:.7rem;color:var(--text-muted)">${t.players.map(p => p.nome).join(', ')}</span>` : ''}
                 </td>
                 <td><span class="copy-link" onclick="copyLink('${t.registration_token}')">Copiar link</span></td>
@@ -185,7 +185,7 @@
       const hasTables = tablesData.length > 0;
       const hasQualifying = tablesData.some(t => t.phase === 'qualifying');
       const hasFinal = tablesData.some(t => t.phase === 'final');
-      const allTeamsReady = teamsData.length >= 2 && teamsData.every(t => t.players.length === 8);
+      const allTeamsReady = teamsData.length >= 2 && teamsData.every(t => t.players.length === 4);
 
       const isFinished = etapaData && etapaData.status === 'finished';
 
@@ -417,7 +417,7 @@
     async function openFinalModal() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0);
+      const selectedTeams = ranking.slice(0, 6);
 
       const container = document.getElementById('finalPicks');
       const instructionP = document.querySelector('#modalFinal p');
@@ -440,7 +440,7 @@
     async function createFinalTable() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0);
+      const selectedTeams = ranking.slice(0, 6);
 
       const representatives = selectedTeams.map(team => ({
         team_id: team.team_id,

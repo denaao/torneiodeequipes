@@ -4,8 +4,8 @@ export function executeDraw(teams) {
   if (N < 2) throw new Error('Precisa de pelo menos 2 equipes para o sorteio');
 
   for (const team of teams) {
-    if (team.players.length !== 8) {
-      throw new Error(`Equipe "${team.nome}" não tem 8 jogadores (tem ${team.players.length})`);
+    if (team.players.length !== 4) {
+      throw new Error(`Equipe "${team.nome}" não tem 4 jogadores (tem ${team.players.length})`);
     }
   }
 
@@ -20,7 +20,7 @@ export function executeDraw(teams) {
   }));
 
   for (let i = 0; i < N; i++) {
-    for (let j = 0; j < 8; j++) {
+    for (let j = 0; j < 4; j++) {
       const tableIndex = (i + j) % N;
       tables[tableIndex].players.push({
         ...shuffledTeams[i].players[j],
