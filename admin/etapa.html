@@ -63,6 +63,22 @@
     </div>
   </div>
 
+  <!-- MODAL: Mover Jogador -->
+  <div class="modal-overlay" id="modalMove">
+    <div class="modal">
+      <h2>Mover Jogador</h2>
+      <p id="movePlayerName" style="font-size:.9rem;color:var(--text-muted);margin-bottom:1rem;"></p>
+      <div class="form-group">
+        <label>Mesa destino</label>
+        <select id="moveTargetTable"></select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modalMove')">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmMove()">Mover</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Final Table -->
   <div class="modal-overlay" id="modalFinal">
     <div class="modal">
@@ -390,12 +406,38 @@
                 <div style="display:flex;align-items:center;gap:.5rem;">
                   ${isEliminated ? `<span class="seat-order">${position}o lugar</span><span class="seat-points">${s.points} pts</span>` : ''}
                   ${isEliminated && !isFinished ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation();clearSeat(${s.seat_id})" title="Desfazer">&#8635;</button>` : ''}
+                  ${!isEliminated && !isFinished ? `<button class="btn btn-sm" onclick="event.stopPropagation();openMoveModal(${s.seat_id},'${s.player_nome}',${table.id})" title="Mover de mesa">&#8646;</button>` : ''}
                 </div>
               </div>
             `;
           }).join('')}
         </div>
       `;
+    }
+
+    let moveSeatId = null;
+
+    function openMoveModal(seatId, playerNome, currentTableId) {
+      moveSeatId = seatId;
+      document.getElementById('movePlayerName').textContent = `Jogador: ${playerNome}`;
+      const select = document.getElementById('moveTargetTable');
+      const otherTables = tablesData.filter(t => t.id !== currentTableId);
+      select.innerHTML = otherTables.map(t =>
+        `<option value="${t.id}">${t.phase === 'final' ? 'Mesa Final' : `Mesa ${t.numero}`}</option>`
+      ).join('');
+      document.getElementById('modalMove').classList.add('open');
+    }
+
+    async function confirmMove() {
+      const target_table_id = parseInt(document.getElementById('moveTargetTable').value);
+      const res = await fetch(`/api/admin/seats/${moveSeatId}/move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_table_id })
+      });
+      if (!res.ok) { const d = await res.json(); alert(d.error); return; }
+      closeModal('modalMove');
+      loadAll();
     }
 
     async function eliminatePlayer(seatId, order) {

@@ -240,6 +240,36 @@ router.patch('/seats/:id/eliminate', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+router.patch('/seats/:id/move', async (req, res) => {
+  const { target_table_id } = req.body;
+  if (!target_table_id) return res.status(400).json({ error: 'Mesa destino obrigatória' });
+  try {
+    // Verifica que o seat pertence ao usuário e não está eliminado
+    const seat = (await pool.query(`
+      SELECT s.*, t.etapa_id, t.phase FROM seats s
+      JOIN tables_t t ON s.table_id = t.id
+      JOIN etapas e ON t.etapa_id = e.id
+      WHERE s.id = $1 AND e.user_id = $2
+    `, [req.params.id, uid(req)])).rows[0];
+
+    if (!seat) return res.status(404).json({ error: 'Seat não encontrado' });
+    if (seat.elimination_order !== null) return res.status(400).json({ error: 'Jogador já eliminado, não pode ser movido' });
+
+    // Verifica que a mesa destino pertence à mesma etapa
+    const targetTable = (await pool.query(
+      'SELECT * FROM tables_t WHERE id = $1 AND etapa_id = $2',
+      [target_table_id, seat.etapa_id]
+    )).rows[0];
+
+    if (!targetTable) return res.status(404).json({ error: 'Mesa destino não encontrada' });
+    if (targetTable.id === seat.table_id) return res.status(400).json({ error: 'Jogador já está nessa mesa' });
+
+    // Move: atualiza o table_id do seat
+    await pool.query('UPDATE seats SET table_id = $1 WHERE id = $2', [target_table_id, req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 router.patch('/seats/:id/clear', async (req, res) => {
   try {
     const seat = (await pool.query(`
