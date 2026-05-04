@@ -21,8 +21,12 @@ export async function initSchema() {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       nome TEXT NOT NULL,
       status TEXT DEFAULT 'registration',
+      players_per_team INTEGER DEFAULT 4,
+      final_spots INTEGER DEFAULT 6,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE etapas ADD COLUMN IF NOT EXISTS players_per_team INTEGER DEFAULT 4;
+    ALTER TABLE etapas ADD COLUMN IF NOT EXISTS final_spots INTEGER DEFAULT 6;
 
     CREATE TABLE IF NOT EXISTS global_teams (
       id SERIAL PRIMARY KEY,

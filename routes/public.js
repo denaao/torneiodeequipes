@@ -9,7 +9,7 @@ router.get('/register/:token', async (req, res) => {
   try {
     const { rows: [etapaTeam] } = await pool.query(`
       SELECT et.id, et.etapa_id, gt.nome, e.nome as etapa_nome, e.status as etapa_status,
-             et.registration_token
+             et.registration_token, e.players_per_team
       FROM etapa_teams et
       JOIN global_teams gt ON et.global_team_id = gt.id
       JOIN etapas e ON et.etapa_id = e.id
@@ -28,7 +28,7 @@ router.get('/register/:token', async (req, res) => {
 router.post('/register/:token', async (req, res) => {
   try {
     const { rows: [etapaTeam] } = await pool.query(`
-      SELECT et.id, e.status as etapa_status
+      SELECT et.id, e.status as etapa_status, e.players_per_team
       FROM etapa_teams et
       JOIN etapas e ON et.etapa_id = e.id
       WHERE et.registration_token = $1
@@ -37,8 +37,9 @@ router.post('/register/:token', async (req, res) => {
     if (!etapaTeam) return res.status(404).json({ error: 'Link inválido' });
     if (etapaTeam.etapa_status !== 'registration') return res.status(400).json({ error: 'Inscrições encerradas' });
 
+    const ppt = etapaTeam.players_per_team || 4;
     const { players } = req.body;
-    if (!players || players.length !== 4) return res.status(400).json({ error: 'Precisa de exatamente 4 jogadores' });
+    if (!players || players.length !== ppt) return res.status(400).json({ error: `Precisa de exatamente ${ppt} jogadores` });
     for (const name of players) {
       if (!name?.trim()) return res.status(400).json({ error: 'Todos os nomes são obrigatórios' });
     }

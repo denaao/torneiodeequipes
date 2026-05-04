@@ -148,7 +148,7 @@
             ${teamsData.map(t => `
               <tr>
                 <td><strong>${t.nome}</strong></td>
-                <td>${t.players.length === 4 ? '<span style="color:var(--green)">4/4</span>' : `<span style="color:var(--red)">${t.players.length}/4</span>`}
+                <td>${(ppt => t.players.length === ppt ? `<span style="color:var(--green)">${ppt}/${ppt}</span>` : `<span style="color:var(--red)">${t.players.length}/${ppt}</span>`)(etapaData?.players_per_team || 4)}
                   ${t.players.length > 0 ? `<br><span style="font-size:.7rem;color:var(--text-muted)">${t.players.map(p => p.nome).join(', ')}</span>` : ''}
                 </td>
                 <td><span class="copy-link" onclick="copyLink('${t.registration_token}')">Copiar link</span></td>
@@ -185,7 +185,8 @@
       const hasTables = tablesData.length > 0;
       const hasQualifying = tablesData.some(t => t.phase === 'qualifying');
       const hasFinal = tablesData.some(t => t.phase === 'final');
-      const allTeamsReady = teamsData.length >= 2 && teamsData.every(t => t.players.length === 4);
+      const ppt = etapaData?.players_per_team || 4;
+      const allTeamsReady = teamsData.length >= 2 && teamsData.every(t => t.players.length === ppt);
 
       const isFinished = etapaData && etapaData.status === 'finished';
 
@@ -417,7 +418,7 @@
     async function openFinalModal() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0, 6);
+      const selectedTeams = ranking.slice(0, etapaData?.final_spots || 6);
 
       const container = document.getElementById('finalPicks');
       const instructionP = document.querySelector('#modalFinal p');
@@ -440,7 +441,7 @@
     async function createFinalTable() {
       const res = await fetch(`/api/admin/etapas/${etapaId}/ranking`);
       const ranking = await res.json();
-      const selectedTeams = ranking.slice(0, 6);
+      const selectedTeams = ranking.slice(0, etapaData?.final_spots || 6);
 
       const representatives = selectedTeams.map(team => ({
         team_id: team.team_id,

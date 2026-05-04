@@ -23,12 +23,14 @@ router.get('/etapas', async (req, res) => {
 });
 
 router.post('/etapas', async (req, res) => {
-  const { nome } = req.body;
+  const { nome, players_per_team, final_spots } = req.body;
   if (!nome) return res.status(400).json({ error: 'Nome obrigatório' });
+  const ppt = parseInt(players_per_team) || 4;
+  const fs = parseInt(final_spots) || 6;
   try {
     const r = await pool.query(
-      'INSERT INTO etapas (user_id, nome) VALUES ($1, $2) RETURNING *',
-      [uid(req), nome]
+      'INSERT INTO etapas (user_id, nome, players_per_team, final_spots) VALUES ($1, $2, $3, $4) RETURNING *',
+      [uid(req), nome, ppt, fs]
     );
     const etapaId = r.rows[0].id;
 
@@ -152,7 +154,7 @@ router.post('/etapas/:id/draw', async (req, res) => {
       team.players = rows;
     }
 
-    const tables = executeDraw(teams);
+    const tables = executeDraw(teams, etapa.players_per_team || 4);
 
     for (const table of tables) {
       const r = await pool.query(
